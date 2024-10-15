@@ -225,14 +225,12 @@
 </template>
 
 <script setup>
-import {
-	ref,onMounted
-} from 'vue'
+import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { IconSearch } from '@arco-design/web-vue/es/icon';
+import { Message, Pagination, Button } from '@arco-design/web-vue';
+import loader from './Loader.vue';
 
-import { Message,Pagination,Button } from '@arco-design/web-vue';
-import loader from './Loader.vue'
 const watchRecords = ref([]);
 const activeKey = ref('1');
 const loading = ref(false);
@@ -242,29 +240,29 @@ const searchPageSize = ref(0);
 const searchPageTotal = ref(0);
 const searchPageData = ref([]);
 const selectedMovie = ref(null);
-const hitokoto = ref(null);
 const searchQuery = ref('');
-const playButton = ref(true)
-const showModal = ref(false)
-const stopButton = ref(false)
-const inputUrl = ref('')
-const load = ref(true)
-const selectApi = ref('https://dmplay.knowhub.vip/d?url='); // 默认选择推荐接口
+const playButton = ref(true);
+const showModal = ref(false);
+const stopButton = ref(false);
+const inputUrl = ref('');
+const load = ref(true);
+const selectApi = ref('https://jx.xmflv.com/?url=');  // 修正后的默认选择接口
+
 const options = [
   {
-    value:
-        'https://jx.xmflv.com/?url=',
+    value: 'https://jx.xmflv.com/?url=',
     label: '虾米接口',
   },
   {
-    value:
-        'https://dmplay.knowhub.vip/d?url=',
-    label: 'DMP接口',
+    value: 'https://jx.m3u8.tv/jiexi/?url=',
+    label: 'm3u8接口',
+  },
+  {
+    value: 'https://im1907.top/?jx=',
+    label: 'm1907接口',
   },
 
-
-
-]
+];
 
 onMounted(() => {
   loadWatchRecords();
@@ -301,7 +299,6 @@ const continueWatching = async (record) => {
   }
 };
 
-
 const columns = [
   { title: '名字', dataIndex: 'vod_name' },
   { title: '更新日期', dataIndex: 'vod_time' },
@@ -314,31 +311,21 @@ const isSelected = (episode) => {
 }
 
 const onTabChange = (key) => {
-  activeKey.value=key;
+  activeKey.value = key;
 }
 
-
-
-
-const  searchDetail = async (data) => {
+const searchDetail = async (data) => {
   loading.value = true;
 
-  await axios({
-    url: 'https://proxy.iprouter.top/http://zy.xiaomaomi.cc/api.php/provide/vod/?ac=detail&ids='+data.vod_id,
-    method: 'GET',
-  }).then(function (response) {
-    var tem=response.data.list[0]
-    var playUrls = tem.vod_play_url.split('#');
-    var  episodes=[] ;
-    playUrls.forEach((item, index) => {
-      var parts = item.split('$');
-      var title = parts[0];
-      // if (!title.includes('第')) {
-      //   title = '第' + title + '集';
-      // }
-      episodes.push({ id: index, title: title, url: parts[1] });
-    });
-    episodes.reverse();
+  try {
+    const response = await axios.get(`https://proxy.iprouter.top/http://zy.xiaomaomi.cc/api.php/provide/vod/?ac=detail&ids=${data.vod_id}`);
+    const tem = response.data.list[0];
+    const playUrls = tem.vod_play_url.split('#');
+    const episodes = playUrls.map((item, index) => {
+      const parts = item.split('$');
+      const title = parts[0];
+      return { id: index, title: title, url: parts[1] };
+    }).reverse();
 
     selectedMovie.value = {
       id: tem.vod_id,
@@ -353,49 +340,51 @@ const  searchDetail = async (data) => {
       type: tem.type_name,
       episodes: episodes,
     };
-  }).catch(function () {
-    console.log('请求失败');
-  });
-
-  activeKey.value='2';
-  loading.value = false;
+    activeKey.value = '2';
+  } catch (error) {
+    console.error('请求失败:', error);
+    Message.error('获取影片详情失败，请重试');
+  } finally {
+    loading.value = false;
+  }
 };
 
+const playEpisode = async (data) => {
+  try {
+    const selectApiValue = selectApi.value;
+    selectedEpisode.value = data;
+    const finalUrl = `${selectApiValue}${encodeURIComponent(data.url)}`;
+    console.log('Playing URL:', finalUrl);
 
-const playEpisode = (data) => {
-  const selectApiValue = selectApi.value; // 获取选择框的值
-  selectedEpisode.value=data;
-  const finalUrl = selectApiValue + encodeURIComponent(data.url); // 拼接接口链接和输入框的值
-  const iframe = document.querySelector('.player iframe');
-  iframe.src = finalUrl;
+    const iframe = document.querySelector('.player iframe');
+    iframe.src = finalUrl;
 
-  inputUrl.value=data.url;
+    inputUrl.value = data.url;
 
-  // 在播放视频时隐藏动画元素
-  load.value = false;
-  // 在播放视频时隐藏播放按钮
-  playButton.value = false;
-  // 在播放视频时显示停止按钮
-  stopButton.value = true;
+    load.value = false;
+    playButton.value = false;
+    stopButton.value = true;
 
-  Message.success('连接成功，请等待视频加载完成');
+    Message.success('连接成功，请等待视频加载完成');
 
-  // 获取当前日期和时间
-  const now = new Date();
-
-// 格式化日期和时间为 "YYYY-MM-DD HH:mm:ss"
-  const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-  // 保存观影记录
-  saveWatchRecord({
-    id: selectedMovie.value.id,
-    title: selectedMovie.value.title,
-    image: selectedMovie.value.image,
-    episode: data,
-    timestamp: timestamp,
-  });
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    saveWatchRecord({
+      id: selectedMovie.value.id,
+      title: selectedMovie.value.title,
+      image: selectedMovie.value.image,
+      episode: data,
+      timestamp: timestamp,
+    });
+  } catch (error) {
+    console.error('播放视频时发生错误:', error);
+    Message.error('播放视频时发生错误，请检查控制台日志');
+    load.value = true;
+    playButton.value = true;
+    stopButton.value = false;
+  }
 };
 
-// 保存观看记录
 const saveWatchRecord = (record) => {
   let records = JSON.parse(localStorage.getItem('watchRecords')) || [];
 
@@ -418,65 +407,58 @@ const saveWatchRecord = (record) => {
   loadWatchRecords();
 };
 
-
-
 const search = async (page) => {
-
-  if (searchQuery.value==''){
+  if (searchQuery.value.trim() === '') {
     Message.warning('请输入搜索内容');
-    loading.value = false;
     return;
   }
 
   loading.value = true;
-  activeKey.value='1';
-  await axios({
-    url: 'https://proxy.iprouter.top/http://zy.xiaomaomi.cc/api.php/provide/vod/?ac=list&wd=' + searchQuery.value + '&pg='+page,
-    method: 'GET',
-  }).then(function (response) {
+  activeKey.value = '1';
+  try {
+    const response = await axios.get(`https://proxy.iprouter.top/http://zy.xiaomaomi.cc/api.php/provide/vod/?ac=list&wd=${encodeURIComponent(searchQuery.value)}&pg=${page}`);
     searchPageData.value = response.data.list;
-    searchPageTotal.value = parseInt(response.data.total) ;
-    searchPageSize.value =parseInt(response.data.limit) ;
-    searchCurrentPage.value =parseInt(response.data.page) ;
-  }).catch(function () {
-    console.log('请求失败');
-  });
-  loading.value = false;
+    searchPageTotal.value = parseInt(response.data.total);
+    searchPageSize.value = parseInt(response.data.limit);
+    searchCurrentPage.value = parseInt(response.data.page);
+  } catch (error) {
+    console.error('搜索请求失败:', error);
+    Message.error('搜索失败，请重试');
+  } finally {
+    loading.value = false;
+  }
 };
 
-
-
-
 const play = () => {
-	const selectApiValue = selectApi.value; // 获取选择框的值
-	const videoUrl = inputUrl.value; // 获取输入框的值
+  const selectApiValue = selectApi.value;
+  const videoUrl = inputUrl.value;
 
-	if (videoUrl) {
-		const finalUrl = selectApiValue + encodeURIComponent(videoUrl); // 拼接接口链接和输入框的值
+  if (videoUrl) {
+    const finalUrl = `${selectApiValue}${encodeURIComponent(videoUrl)}`;
+    console.log('Playing URL:', finalUrl);
 
-		const iframe = document.querySelector('.player iframe');
-		iframe.src = finalUrl;
+    const iframe = document.querySelector('.player iframe');
+    iframe.src = finalUrl;
 
-		Message.success('连接成功，请等待视频加载完成');
-		// 在播放视频时隐藏动画元素
-		load.value = false;
-		// 在播放视频时隐藏播放按钮
-		playButton.value = false;
-		// 在播放视频时显示停止按钮
-		stopButton.value = true;
-	} else {
-		Message.warning('请输入视频链接');
-	}
+    Message.success('连接成功，请等待视频加载完成');
+    load.value = false;
+    playButton.value = false;
+    stopButton.value = true;
+  } else {
+    Message.warning('请输入视频链接');
+  }
 }
+
 const stop = () => {
-	const iframe = document.querySelector('.player iframe');
-	iframe.src = '';
-	load.value = true; // 在停止播放时显示动画元素
-	playButton.value = true; // 在停止播放时显示播放按钮
-	stopButton.value = false; // 在停止播放时隐藏停止按钮
-	Message.info('已停止播放，继续看点啥？');
+  const iframe = document.querySelector('.player iframe');
+  iframe.src = '';
+  load.value = true;
+  playButton.value = true;
+  stopButton.value = false;
+  Message.info('已停止播放，继续看点啥？');
 }
 </script>
+
 
 
 <style scoped>

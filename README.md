@@ -1,3 +1,3 @@
 ** 在线演示1  **
 
-[https://wantwatch.me/](https://wantwatch.me/)
+[https://media.fuqiang.uk/](https://media.fuqiang.uk/)
